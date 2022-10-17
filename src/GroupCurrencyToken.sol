@@ -1,23 +1,17 @@
 // SPDX-License-Identifier: AGPL
-pragma solidity ^0.7.0;
+pragma solidity ^0.8.0;
 
-import "./lib/SafeMath.sol";
-import "./ERC20.sol";
-import "./Hub.sol";
+import "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import "./IHub.sol";
 
 contract GroupCurrencyToken is ERC20 {
-    using SafeMath for uint256;
 
-    uint8 public immutable override decimals = 18;
     uint8 public mintFeePerThousand;
     
     bool public suspended;
     bool public onlyOwnerCanMint;
     bool public onlyTrustedCanMint;
     
-    string public name;
-    string public override symbol;
-
     address public owner; // the safe/EOA/contract that deployed this token, can be changed by owner
     address public hub; // the address of the hub this token is associated with
     address public treasury; // account which gets the personal tokens for whatever later usage
@@ -41,14 +35,12 @@ contract GroupCurrencyToken is ERC20 {
         _;
     }
 
-    constructor(address _hub, address _treasury, address _owner, uint8 _mintFeePerThousand, string memory _name, string memory _symbol) {
-        symbol = _symbol;
-        name = _name;
+    constructor(address _hub, address _treasury, address _owner, uint8 _mintFeePerThousand, string memory _name, string memory _symbol) ERC20(_name, _symbol) {
         owner = _owner;
         hub = _hub;
         treasury = _treasury;
         mintFeePerThousand = _mintFeePerThousand;
-        Hub(hub).organizationSignup();
+        IHub(hub).organizationSignup();
     }
     
     function suspend(bool _suspend) public onlyOwner {
@@ -72,13 +64,13 @@ contract GroupCurrencyToken is ERC20 {
     }
 
     function addMemberToken(address _member) public onlyOwner {
-        address memberTokenUser = HubI(hub).tokenToUser(_member);
+        address memberTokenUser = IHub(hub).tokenToUser(_member);
         _directTrust(memberTokenUser, 100);
         emit MemberTokenAdded(memberTokenUser);
     }
 
     function removeMemberToken(address _member) public onlyOwner {
-        address memberTokenUser = HubI(hub).tokenToUser(_member);
+        address memberTokenUser = IHub(hub).tokenToUser(_member);
         _directTrust(memberTokenUser, 0);
         emit MemberTokenRemoved(memberTokenUser);
     }
@@ -103,7 +95,7 @@ contract GroupCurrencyToken is ERC20 {
         if (onlyOwnerCanMint) {
             require(msg.sender == owner, "Only owner can mint.");
         } else if (onlyTrustedCanMint) {
-            require(HubI(hub).limits(address(this), msg.sender) > 0, "GCT does not trust sender.");
+            require(IHub(hub).limits(address(this), msg.sender) > 0, "GCT does not trust sender.");
         }
         uint mintedAmount = 0;
         for (uint i = 0; i < _collateral.length; i++) {
@@ -114,10 +106,10 @@ contract GroupCurrencyToken is ERC20 {
 
     function _mintGroupCurrencyTokenForCollateral(address _collateral, uint256 _amount) internal returns (uint256) {
         // Check if the Collateral Owner is trusted by this GroupCurrencyToken
-        address collateralOwner = HubI(hub).tokenToUser(_collateral);
-        require(HubI(hub).limits(address(this), collateralOwner) > 0, "GCT does not trust collateral owner.");
-        uint256 mintFee = (_amount.div(1000)).mul(mintFeePerThousand);
-        uint256 mintAmount = _amount.sub(mintFee);
+        address collateralOwner = IHub(hub).tokenToUser(_collateral);
+        require(IHub(hub).limits(address(this), collateralOwner) > 0, "GCT does not trust collateral owner.");
+        uint256 mintFee = (_amount / 1000) * mintFeePerThousand;
+        uint256 mintAmount = _amount - mintFee;
         // mint amount-fee to msg.sender
         _mint(msg.sender, mintAmount);
         // Token Swap, send CRC from GCTO to Treasury (has been transferred to GCTO by transferThrough)
@@ -139,19 +131,19 @@ contract GroupCurrencyToken is ERC20 {
         // Start with _index to save gas if index is known
         for (uint i = _index; i < counter; i++) {
             if (delegatedTrustees[i] != address(0)) {
-                if (HubI(hub).limits(delegatedTrustees[i], _trustee) > 0) {
+                if (IHub(hub).limits(delegatedTrustees[i], _trustee) > 0) {
                     trustedByAnyDelegate = true;
                     break;
                 }
             }
         }
         require(trustedByAnyDelegate, "trustee is not trusted by any delegate.");
-        Hub(hub).trust(_trustee, 100);
+        IHub(hub).trust(_trustee, 100);
     }
 
     // Trust must be called by this contract (as a delegate) on Hub
     function _directTrust(address _trustee, uint _amount) internal {
         require(_trustee != address(0), "trustee must be valid address.");
-        Hub(hub).trust(_trustee, _amount);
+        IHub(hub).trust(_trustee, _amount);
     }
 }

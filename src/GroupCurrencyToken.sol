@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: AGPL
 pragma solidity ^0.8.0;
 
-import "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./IHub.sol";
 
 contract GroupCurrencyToken is ERC20 {
+
+    using SafeERC20 for ERC20;
 
     uint8 public mintFeePerThousand;
     
@@ -31,7 +34,7 @@ contract GroupCurrencyToken is ERC20 {
 
     /// @dev modifier allowing function to be only called by the token owner
     modifier onlyOwner() {
-        require(msg.sender == owner);
+        require(msg.sender == owner, "only owner can call");
         _;
     }
 
@@ -43,45 +46,45 @@ contract GroupCurrencyToken is ERC20 {
         IHub(hub).organizationSignup();
     }
     
-    function suspend(bool _suspend) public onlyOwner {
+    function suspend(bool _suspend) external onlyOwner {
         suspended = _suspend;
         emit Suspended(owner);
     }
     
-    function changeOwner(address _owner) public onlyOwner {
+    function changeOwner(address _owner) external onlyOwner {
         owner = _owner;
         emit OwnerChanged(msg.sender, owner);
     }
 
-    function setOnlyOwnerCanMint(bool _onlyOwnerCanMint) public onlyOwner {
+    function setOnlyOwnerCanMint(bool _onlyOwnerCanMint) external onlyOwner {
         onlyOwnerCanMint = _onlyOwnerCanMint;
         emit OnlyOwnerCanMint(onlyOwnerCanMint);
     }
 
-    function setOnlyTrustedCanMint(bool _onlyTrustedCanMint) public onlyOwner {
+    function setOnlyTrustedCanMint(bool _onlyTrustedCanMint) external onlyOwner {
         onlyTrustedCanMint = _onlyTrustedCanMint;
         emit OnlyTrustedCanMint(onlyTrustedCanMint);
     }
 
-    function addMemberToken(address _member) public onlyOwner {
+    function addMemberToken(address _member) external onlyOwner {
         address memberTokenUser = IHub(hub).tokenToUser(_member);
         _directTrust(memberTokenUser, 100);
         emit MemberTokenAdded(memberTokenUser);
     }
 
-    function removeMemberToken(address _member) public onlyOwner {
+    function removeMemberToken(address _member) external onlyOwner {
         address memberTokenUser = IHub(hub).tokenToUser(_member);
         _directTrust(memberTokenUser, 0);
         emit MemberTokenRemoved(memberTokenUser);
     }
 
-    function addDelegatedTrustee(address _account) public onlyOwner {
+    function addDelegatedTrustee(address _account) external onlyOwner {
         delegatedTrustees[counter] = _account;
         counter++;
         emit DelegatedTrusteeAdded(_account);
     }
 
-    function removeDelegatedTrustee(uint _index) public onlyOwner {
+    function removeDelegatedTrustee(uint _index) external onlyOwner {
         address delegatedTrustee = delegatedTrustees[_index];
         delegatedTrustees[_index] = address(0);
         emit DelegatedTrusteeRemoved(delegatedTrustee);
@@ -89,13 +92,13 @@ contract GroupCurrencyToken is ERC20 {
 
     // Group currently is created from collateral tokens, which have to be transferred to this Token before.
     // Note: This function is not restricted, so anybody can mint with the collateral Token! The function call must be transactional to be safe.
-    function mint(address[] calldata _collateral, uint256[] calldata _amount) public returns (uint256) {
-        require(!suspended, "Minting has been suspended.");
+    function mint(address[] calldata _collateral, uint256[] calldata _amount) external returns (uint256) {
+        require(!suspended, "Minting is suspended.");
         // Check status
         if (onlyOwnerCanMint) {
-            require(msg.sender == owner, "Only owner can mint.");
+            require(msg.sender == owner, "Only owner can mint");
         } else if (onlyTrustedCanMint) {
-            require(IHub(hub).limits(address(this), msg.sender) > 0, "GCT does not trust sender.");
+            require(IHub(hub).limits(address(this), msg.sender) > 0, "GCT does not trust sender");
         }
         uint mintedAmount = 0;
         for (uint i = 0; i < _collateral.length; i++) {
@@ -104,29 +107,9 @@ contract GroupCurrencyToken is ERC20 {
         return mintedAmount;
     }
 
-    function _mintGroupCurrencyTokenForCollateral(address _collateral, uint256 _amount) internal returns (uint256) {
-        // Check if the Collateral Owner is trusted by this GroupCurrencyToken
-        address collateralOwner = IHub(hub).tokenToUser(_collateral);
-        require(IHub(hub).limits(address(this), collateralOwner) > 0, "GCT does not trust collateral owner.");
-        uint256 mintFee = (_amount / 1000) * mintFeePerThousand;
-        uint256 mintAmount = _amount - mintFee;
-        // mint amount-fee to msg.sender
-        _mint(msg.sender, mintAmount);
-        // Token Swap, send CRC from GCTO to Treasury (has been transferred to GCTO by transferThrough)
-        ERC20(_collateral).transfer(treasury, _amount);
-        emit Minted(msg.sender, _amount, mintAmount, mintFee);
-        return mintAmount;
-    }
-
-    function transfer(address _dst, uint256 _wad) public override returns (bool) {
-        // this code shouldn't be necessary, but when it's removed the gas estimation methods
-        // in the gnosis safe no longer work, still true as of solidity 7.1
-        return super.transfer(_dst, _wad);
-    }
-
     // Trust must be called by this contract (as a delegate) on Hub
-    function delegateTrust(uint _index, address _trustee) public {
-        require(_trustee != address(0), "trustee must be valid address.");
+    function delegateTrust(uint _index, address _trustee) external {
+        require(_trustee != address(0), "trustee must be valid address");
         bool trustedByAnyDelegate = false;
         // Start with _index to save gas if index is known
         for (uint i = _index; i < counter; i++) {
@@ -137,13 +120,33 @@ contract GroupCurrencyToken is ERC20 {
                 }
             }
         }
-        require(trustedByAnyDelegate, "trustee is not trusted by any delegate.");
+        require(trustedByAnyDelegate, "trustee not trusted by any delegate");
         IHub(hub).trust(_trustee, 100);
+    }
+
+    function transfer(address _dst, uint256 _wad) public override returns (bool) {
+        // this code shouldn't be necessary, but when it's removed the gas estimation methods
+        // in the gnosis safe no longer work, still true as of solidity 7.1
+        return super.transfer(_dst, _wad);
+    }
+
+    function _mintGroupCurrencyTokenForCollateral(address _collateral, uint256 _amount) internal returns (uint256) {
+        // Check if the Collateral Owner is trusted by this GroupCurrencyToken
+        address collateralOwner = IHub(hub).tokenToUser(_collateral);
+        require(IHub(hub).limits(address(this), collateralOwner) > 0, "collateral owner not trusted");
+        uint256 mintFee = (_amount / 1000) * mintFeePerThousand;
+        uint256 mintAmount = _amount - mintFee;
+        // mint amount-fee to msg.sender
+        _mint(msg.sender, mintAmount);
+        // Token Swap, send CRC from GCTO to Treasury (has been transferred to GCTO by transferThrough)
+        ERC20(_collateral).safeTransfer(treasury, _amount);
+        emit Minted(msg.sender, _amount, mintAmount, mintFee);
+        return mintAmount;
     }
 
     // Trust must be called by this contract (as a delegate) on Hub
     function _directTrust(address _trustee, uint _amount) internal {
-        require(_trustee != address(0), "trustee must be valid address.");
+        require(_trustee != address(0), "trustee must be valid address");
         IHub(hub).trust(_trustee, _amount);
     }
 }

@@ -30,11 +30,12 @@ contract GroupCurrencyTokenDeploy is Script {
         tokens[0] = 50000000000000000000;
         vm.stopPrank();
         
-        vm.startPrank(0x249fA3ecD95a53F742707D53688FCafbBd072f33);
+        vm.prank(0x249fA3ecD95a53F742707D53688FCafbBd072f33);
         ERC20(token).transfer(address(gct), 50000000000000000000);
+
+        // new address, not used before
+        vm.prank(0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
         gct.mint(cols, tokens);
-        
-        vm.stopPrank();
     }
 
 }

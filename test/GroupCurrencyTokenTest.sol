@@ -112,6 +112,7 @@ contract GroupCurrencyTokenTest is Test {
         uint256[] memory tokens = new uint256[](1);
         tokens[0] = 50;
         mockToken.transfer(address(gct), 50);
+        
         gct.mint(cols, tokens);
     }
 
@@ -171,6 +172,9 @@ contract GroupCurrencyTokenTest is Test {
         uint256[] memory tokens = new uint256[](1);
         tokens[0] = 50;
         mockToken.transfer(address(gct), 50);
+
+        setupExpectEmitMinted(address(this), address(gct));
+
         gct.mint(cols, tokens);
     }
 
@@ -202,14 +206,62 @@ contract GroupCurrencyTokenTest is Test {
         tokens[0] = 50;
         mockToken.transfer(address(gct), 50);
         
+        setupExpectEmitMinted(address(this), address(gct));
+
+        gct.mint(cols, tokens);
+    }
+
+    function testMintingSucceedsWithOnlyTrustedCanMint() external {
+        MockHub mockHub = new MockHub();
+        GroupCurrencyToken gct = new GroupCurrencyToken(address(mockHub), address(this), address(this), 0, "GCT", "GCT");
+        MockToken mockToken = new MockToken("GCT", "GCT", 50);
+        address trustee = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+        mockHub.setTokenToUser(address(mockToken), trustee);
+        gct.addMemberToken(address(mockToken));
+        gct.setOnlyTrustedCanMint(true);
+        address[] memory cols = new address[](1);
+        cols[0] = address(mockToken);
+        uint256[] memory tokens = new uint256[](1);
+        tokens[0] = 50;
+        mockToken.transfer(address(gct), 50);
+        
+        mockHub.setTokenToUser(0x70997970C51812dc3A010C7d01b50e0d17dc79C8, 0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
+        gct.addMemberToken(0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
+
+        setupExpectEmitMinted(0x70997970C51812dc3A010C7d01b50e0d17dc79C8, address(gct));
+
+        vm.prank(0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
+        gct.mint(cols, tokens);
+    }
+
+    function testMintingSucceedsWithOnlyOwnerCanMint() external {
+        MockHub mockHub = new MockHub();
+        GroupCurrencyToken gct = new GroupCurrencyToken(address(mockHub), address(this), address(this), 0, "GCT", "GCT");
+        MockToken mockToken = new MockToken("GCT", "GCT", 50);
+        address trustee = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+        mockHub.setTokenToUser(address(mockToken), trustee);
+        gct.addMemberToken(address(mockToken));
+        gct.setOnlyOwnerCanMint(true);
+        address[] memory cols = new address[](1);
+        cols[0] = address(mockToken);
+        uint256[] memory tokens = new uint256[](1);
+        tokens[0] = 50;
+        mockToken.transfer(address(gct), 50);
+    
+        setupExpectEmitMinted(address(this), address(gct));
+
+        gct.mint(cols, tokens);
+    }
+
+    function setupExpectEmitMinted(address from, address gct) private {
         vm.expectEmit(false, false, false, false);
         emit Transfer(0x0000000000000000000000000000000000000000, 0x0000000000000000000000000000000000000000, 0);
         vm.expectEmit(false, false, false, false);
         emit Transfer(0x0000000000000000000000000000000000000000, 0x0000000000000000000000000000000000000000, 0);
         
-        vm.expectEmit(true, true, false, true, address(gct));
-        emit Minted(address(this), 50, 50, 0);
-        gct.mint(cols, tokens);
+        vm.expectEmit(true, true, false, true, gct);
+        emit Minted(from, 50, 50, 0);
     }
+
 
 }

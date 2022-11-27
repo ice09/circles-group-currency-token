@@ -1,11 +1,11 @@
 pragma abicoder v2;
 
 import "../lib/forge-std/src/Test.sol";
+import "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "../src/GroupCurrencyToken.sol";
 import "../src/IHub.sol";
-import "../src/MockHub.sol";
-import "../src/MockToken.sol";
-import "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import "./MockHub.sol";
+import "./MockToken.sol";
 
 contract GroupCurrencyTokenTest is Test {
 

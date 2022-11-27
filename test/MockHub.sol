@@ -1,4 +1,4 @@
-import "./IHub.sol";
+import "../src/IHub.sol";
 
 contract MockHub is IHub {
 

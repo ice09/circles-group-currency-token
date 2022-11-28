@@ -4,8 +4,6 @@ A group currency would define a number of individual Circles tokens directly or 
 
 _Note: The GroupCurrencyToken contract is WIP, non-tested, non-audited and not ready for Mainnet/production usage!_
 
-See https://aboutcircles.com/t/suggestion-for-group-currencies/410 for further details.
-
 ## Call Flows for direct minting and delegate minting
 
 ### Direct Minting (Token was trusted by `addMember`)
@@ -39,3 +37,7 @@ There are two possibilities to explore the functionality of GCT:
 
 * `forge script script/GroupCurrencyToken.s.sol -vvvv --fork-url=
 https://rpc.gnosischain.com`
+
+## References
+
+* Initial Draft: https://aboutcircles.com/t/suggestion-for-group-currencies/410/4

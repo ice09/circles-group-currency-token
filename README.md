@@ -10,7 +10,7 @@ See https://aboutcircles.com/t/suggestion-for-group-currencies/410 for further d
 
 ### Direct Minting (Token was trusted by `addMember`)
 
-![](https://i.imgur.com/0uDQ1CZ.png)
+![](https://i.imgur.com/X9YyadU.png)
 
 ### Delegate Minting (Token is trusted by `delegateTrust`)
 
